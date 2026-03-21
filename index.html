@@ -138,7 +138,8 @@ let priceVal = Number(document.getElementById("price").value);
 let foodTotal = foodItems.reduce((sum, f) => sum + f.price, 0);
 
 let total = (daysVal * priceVal) + foodTotal;
-
+let advanceVal = Number(document.getElementById("advance")?.value || 0);
+let balance = total - advanceVal;
   if(editId){
 
     await updateDoc(doc(db,"bookings",editId),{
