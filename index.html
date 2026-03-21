@@ -190,8 +190,6 @@ async function loadData(){
 }
 
 loadData();
-
-</script>
 window.showInvoice = (b) => {
 
   let foodList = (b.food || []).map(f => f.name + " ₹" + f.price).join("\n");
@@ -206,8 +204,9 @@ Food:
 ${foodList || "No food"}
 
 Total: ₹${b.total}
-Status: ${b.status}
-`);
+Status: ${b.status}`);
 };
+</script>
+
 </body>
 </html>
