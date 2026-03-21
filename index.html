@@ -4,126 +4,51 @@
 <title>Aryan Dormitory Manager</title>
 
 <style>
-body {
-  font-family: Arial;
-  background: #f5f7fa;
-  padding: 20px;
-}
-
-h2 {
-  margin-bottom: 10px;
-}
-
-.card {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
-}
-
-.dashboard {
-  display: flex;
-  gap: 20px;
-}
-
-.box {
-  flex: 1;
-  padding: 15px;
-  border-radius: 10px;
-  color: white;
-}
-
-.revenue { background: #28a745; }
-.pending { background: #dc3545; }
-.bookings { background: #007bff; }
-
-input, select {
-  padding: 8px;
-  margin: 5px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-}
-
-button {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.login-btn { background: #4285F4; color: white; }
-.add-btn { background: #28a745; color: white; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-  text-align: center;
-}
-
+body { font-family: Arial; background:#f5f7fa; padding:20px; }
+.card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
+input, select { margin:5px; padding:6px; }
+button { padding:6px 10px; margin:5px; }
 </style>
+
 </head>
 
 <body>
 
 <h2>🏨 Aryan Dormitory Manager</h2>
-
 <p id="userInfo"></p>
-<button class="login-btn" onclick="login()">Login with Google</button>
+<button onclick="login()">Login</button>
 
 <div class="card">
 <h3>Add Booking</h3>
 
+<select id="room"></select>
+<select id="bed"></select>
+
 <input id="name" placeholder="Guest Name">
-<input id="bed" placeholder="Room1-Bed1">
-<input id="price" type="number" placeholder="Bed Price">
 <input id="days" type="number" placeholder="Days">
-<input id="food" type="number" placeholder="Food Bill">
+<input id="price" type="number" placeholder="Bed Price">
+
+<h4>Food Items</h4>
+<input id="foodName" placeholder="Item">
+<input id="foodPrice" type="number" placeholder="Price">
+<button onclick="addFood()">Add Food</button>
+
+<ul id="foodList"></ul>
+
 <input id="advance" type="number" placeholder="Advance">
 
 <select id="payment">
-<option>Cash</option>
-<option>UPI</option>
+<option>Pending</option>
+<option>Paid</option>
 </select>
 
-<button class="add-btn" onclick="addBooking()">Add Booking</button>
-</div>
-
-<div class="dashboard">
-  <div class="box revenue">
-    <h4>Total Revenue</h4>
-    ₹<span id="revenue">0</span>
-  </div>
-
-  <div class="box pending">
-    <h4>Pending</h4>
-    ₹<span id="pending">0</span>
-  </div>
-
-  <div class="box bookings">
-    <h4>Total Bookings</h4>
-    <span id="count">0</span>
-  </div>
+<button onclick="addBooking()">Save Booking</button>
 </div>
 
 <div class="card">
 <h3>Bookings</h3>
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Bed</th>
-<th>Total</th>
-<th>Advance</th>
-<th>Balance</th>
-</tr>
-</thead>
+<table border="1" width="100%">
+<tr><th>Name</th><th>Room</th><th>Bed</th><th>Total</th><th>Status</th></tr>
 <tbody id="table"></tbody>
 </table>
 </div>
@@ -131,16 +56,13 @@ th, td {
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
   authDomain: "aryan-dormitory-manager.firebaseapp.com",
   projectId: "aryan-dormitory-manager",
-  storageBucket: "aryan-dormitory-manager.appspot.com",
-  messagingSenderId: "875819401826",
-  appId: "1:875819401826:web:98cb2ccb87352831d4073b"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -152,69 +74,95 @@ window.login = async () => {
   await signInWithPopup(auth, provider);
 };
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.getElementById("userInfo").innerText =
-      "Logged in: " + user.email;
+// ROOMS CONFIG
+const rooms = {
+  "अभिज्ञान‍ः":4,
+  "व्यासः":4,
+  "अत्रिः":4,
+  "भृगुः":4,
+  "वसिष्ठंः":12,
+  "विश्वामित्रः":12,
+  "भारद्वाजः":12,
+  "भार्गवः":12,
+  "आगतस्यः":12
+};
+
+// LOAD ROOMS
+const roomSelect = document.getElementById("room");
+for (let r in rooms){
+  let opt = document.createElement("option");
+  opt.value = r;
+  opt.innerText = r;
+  roomSelect.appendChild(opt);
+}
+
+roomSelect.onchange = loadBeds;
+
+function loadBeds(){
+  let bedSelect = document.getElementById("bed");
+  bedSelect.innerHTML="";
+  let count = rooms[roomSelect.value];
+  for(let i=1;i<=count;i++){
+    let opt = document.createElement("option");
+    opt.value = i;
+    opt.innerText = "Bed "+i;
+    bedSelect.appendChild(opt);
   }
-});
+}
+loadBeds();
+
+// FOOD SYSTEM
+let foodItems=[];
+
+window.addFood = () => {
+  let name = foodName.value;
+  let price = Number(foodPrice.value);
+
+  foodItems.push({name, price});
+
+  let li = document.createElement("li");
+  li.innerText = name + " ₹" + price;
+  foodList.appendChild(li);
+};
 
 window.addBooking = async () => {
-  let name = nameInput.value;
-  let bed = bedInput.value;
-  let price = Number(priceInput.value);
-  let days = Number(daysInput.value);
-  let food = Number(foodInput.value);
-  let advance = Number(advanceInput.value);
 
-  let total = (price * days) + food;
-  let balance = total - advance;
+  let foodTotal = foodItems.reduce((sum,f)=>sum+f.price,0);
 
-  await addDoc(collection(db, "bookings"), {
-    name, bed, total, advance, balance
+  let total = (Number(days.value)*Number(price.value)) + foodTotal;
+
+  await addDoc(collection(db,"bookings"),{
+    name:name.value,
+    room:room.value,
+    bed:bed.value,
+    total,
+    status:payment.value,
+    food:foodItems
   });
+
+  foodItems=[];
+  foodList.innerHTML="";
 
   loadData();
 };
 
 async function loadData(){
-  const data = await getDocs(collection(db, "bookings"));
-  let table = document.getElementById('table');
-  table.innerHTML = "";
+  let data = await getDocs(collection(db,"bookings"));
+  table.innerHTML="";
 
-  let revenue = 0, pending = 0, count = 0;
+  data.forEach(d=>{
+    let b=d.data();
 
-  data.forEach((doc) => {
-    let b = doc.data();
-    revenue += b.total;
-    pending += b.balance;
-    count++;
-
-    table.innerHTML += `
+    table.innerHTML+=`
     <tr>
     <td>${b.name}</td>
+    <td>${b.room}</td>
     <td>${b.bed}</td>
-    <td>${b.total}</td>
-    <td>${b.advance}</td>
-    <td>${b.balance}</td>
+    <td>₹${b.total}</td>
+    <td>${b.status}</td>
     </tr>`;
   });
-
-  revenueEl.innerText = revenue;
-  pendingEl.innerText = pending;
-  countEl.innerText = count;
 }
-
-const nameInput = document.getElementById('name');
-const bedInput = document.getElementById('bed');
-const priceInput = document.getElementById('price');
-const daysInput = document.getElementById('days');
-const foodInput = document.getElementById('food');
-const advanceInput = document.getElementById('advance');
-
-const revenueEl = document.getElementById('revenue');
-const pendingEl = document.getElementById('pending');
-const countEl = document.getElementById('count');
 
 loadData();
 
