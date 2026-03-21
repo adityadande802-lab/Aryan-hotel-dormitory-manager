@@ -1,4 +1,3 @@
-<!-- FULL SYSTEM WITH AVAILABILITY + INVOICE -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,8 +8,6 @@ body { font-family: Arial; background:#f5f7fa; padding:20px; }
 .card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
 input, select { margin:5px; padding:6px; }
 button { padding:6px 10px; margin:5px; }
-.available { color:green; }
-.booked { color:red; }
 </style>
 
 </head>
@@ -22,7 +19,7 @@ button { padding:6px 10px; margin:5px; }
 <button onclick="login()">Login</button>
 
 <div class="card">
-<h3>Add Booking</h3>
+<h3>Add / Edit Booking</h3>
 
 <select id="room"></select>
 <select id="bed"></select>
@@ -45,13 +42,16 @@ button { padding:6px 10px; margin:5px; }
 <option>Paid</option>
 </select>
 
-<button onclick="addBooking()">Save Booking</button>
+<button onclick="saveBooking()">Save Booking</button>
 </div>
 
 <div class="card">
 <h3>Bookings</h3>
 <table border="1" width="100%">
-<tr><th>Name</th><th>Room</th><th>Bed</th><th>Total</th><th>Status</th><th>Invoice</th></tr>
+<tr>
+<th>Name</th><th>Room</th><th>Bed</th>
+<th>Total</th><th>Status</th><th>Actions</th>
+</tr>
 <tbody id="table"></tbody>
 </table>
 </div>
@@ -60,7 +60,7 @@ button { padding:6px 10px; margin:5px; }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
@@ -77,7 +77,7 @@ window.login = async () => {
   await signInWithPopup(auth, provider);
 };
 
-// ROOM CONFIG
+// ROOMS
 const rooms = {
   "अभिज्ञान‍ः":4,
   "व्यासः":4,
@@ -89,9 +89,6 @@ const rooms = {
   "भार्गवः":12,
   "आगतस्यः":12
 };
-
-// TRACK BOOKED BEDS
-let bookedBeds = [];
 
 const roomSelect = document.getElementById("room");
 
@@ -109,11 +106,11 @@ async function loadBeds(){
   bedSelect.innerHTML="";
 
   let data = await getDocs(collection(db,"bookings"));
-  bookedBeds = [];
+  let booked=[];
 
   data.forEach(d=>{
-    let b = d.data();
-    bookedBeds.push(b.room+"-"+b.bed);
+    let b=d.data();
+    booked.push(b.room+"-"+b.bed);
   });
 
   let count = rooms[roomSelect.value];
@@ -121,7 +118,7 @@ async function loadBeds(){
   for(let i=1;i<=count;i++){
     let key = roomSelect.value+"-"+i;
 
-    if(!bookedBeds.includes(key)){
+    if(!booked.includes(key)){
       let opt = document.createElement("option");
       opt.value = i;
       opt.innerText = "Bed "+i+" 🟢";
@@ -133,30 +130,76 @@ loadBeds();
 
 // FOOD
 let foodItems=[];
-
 window.addFood = () => {
   let name = foodName.value;
   let price = Number(foodPrice.value);
 
-  foodItems.push({name, price});
+  foodItems.push({name,price});
 
-  let li = document.createElement("li");
-  li.innerText = name + " ₹" + price;
+  let li=document.createElement("li");
+  li.innerText=name+" ₹"+price;
   foodList.appendChild(li);
 };
 
-window.addBooking = async () => {
+// EDIT SYSTEM
+let editId=null;
 
-  let foodTotal = foodItems.reduce((sum,f)=>sum+f.price,0);
-  let total = (Number(days.value)*Number(price.value)) + foodTotal;
+window.editBooking = async (id) => {
 
-  await addDoc(collection(db,"bookings"),{
-    room: document.getElementById("room").value,
-bed: document.getElementById("bed").value,
-    total,
-    status:payment.value,
-    food:foodItems
+  editId=id;
+
+  let data=await getDocs(collection(db,"bookings"));
+
+  data.forEach(d=>{
+    if(d.id===id){
+      let b=d.data();
+
+      name.value=b.name;
+      room.value=b.room;
+      payment.value=b.status;
+
+      foodItems=b.food||[];
+      foodList.innerHTML="";
+      foodItems.forEach(f=>{
+        let li=document.createElement("li");
+        li.innerText=f.name+" ₹"+f.price;
+        foodList.appendChild(li);
+      });
+    }
   });
+};
+
+// SAVE / UPDATE
+window.saveBooking = async () => {
+
+  let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
+  let total=(Number(days.value)*Number(price.value))+foodTotal;
+
+  if(editId){
+
+    await updateDoc(doc(db,"bookings",editId),{
+      name:name.value,
+      room:room.value,
+      bed:bed.value,
+      total,
+      status:payment.value,
+      food:foodItems
+    });
+
+    editId=null;
+
+  }else{
+
+    await addDoc(collection(db,"bookings"),{
+      name:name.value,
+      room:room.value,
+      bed:bed.value,
+      total,
+      status:payment.value,
+      food:foodItems
+    });
+
+  }
 
   foodItems=[];
   foodList.innerHTML="";
@@ -168,10 +211,9 @@ bed: document.getElementById("bed").value,
 // INVOICE
 window.showInvoice = (b) => {
 
-  let foodList = (b.food || []).map(f => f.name + " ₹" + f.price).join("\n");
+  let foodList = (b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
 
-  alert(
-`INVOICE
+  alert(`INVOICE
 
 Name: ${b.name}
 Room: ${b.room}
@@ -181,25 +223,29 @@ Food:
 ${foodList}
 
 Total: ₹${b.total}
-Status: ${b.status}`
-  );
+Status: ${b.status}`);
 };
+
+// LOAD DATA
 async function loadData(){
-  let data = await getDocs(collection(db,"bookings"));
+  let data=await getDocs(collection(db,"bookings"));
   table.innerHTML="";
 
   data.forEach(d=>{
     let b=d.data();
 
     table.innerHTML+=`
-    <tr>
-    <td>${b.name}</td>
-    <td>${b.room}</td>
-    <td>${b.bed}</td>
-    <td>₹${b.total}</td>
-    <td>${b.status}</td>
-    <td><button onclick='showInvoice(${JSON.stringify(b)})'>View</button></td>
-    </tr>`;
+<tr>
+<td>${b.name}</td>
+<td>${b.room}</td>
+<td>${b.bed}</td>
+<td>₹${b.total}</td>
+<td>${b.status}</td>
+<td>
+<button onclick='showInvoice(${JSON.stringify(b)})'>View</button>
+<button onclick='editBooking("${d.id}")'>Edit</button>
+</td>
+</tr>`;
   });
 }
 
