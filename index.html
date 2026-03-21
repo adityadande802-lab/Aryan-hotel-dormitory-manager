@@ -151,9 +151,8 @@ window.addBooking = async () => {
   let total = (Number(days.value)*Number(price.value)) + foodTotal;
 
   await addDoc(collection(db,"bookings"),{
-    name:name.value,
-    room:room.value,
-    bed:bed.value,
+    room: document.getElementById("room").value,
+bed: document.getElementById("bed").value,
     total,
     status:payment.value,
     food:foodItems
@@ -167,22 +166,24 @@ window.addBooking = async () => {
 };
 
 // INVOICE
-window.showInvoice = (name,room,bed,total,status,food) => {
-  let items = food.map(f=>f.name+" ₹"+f.price).join("<br>");
+window.showInvoice = (b) => {
 
-  alert(`
-Invoice
-Name: ${name}
-Room: ${room}
-Bed: ${bed}
+  let foodList = (b.food || []).map(f => f.name + " ₹" + f.price).join("\n");
+
+  alert(
+`INVOICE
+
+Name: ${b.name}
+Room: ${b.room}
+Bed: ${b.bed}
+
 Food:
-${items}
+${foodList}
 
-Total: ₹${total}
-Status: ${status}
-`);
+Total: ₹${b.total}
+Status: ${b.status}`
+  );
 };
-
 async function loadData(){
   let data = await getDocs(collection(db,"bookings"));
   table.innerHTML="";
@@ -197,7 +198,7 @@ async function loadData(){
     <td>${b.bed}</td>
     <td>₹${b.total}</td>
     <td>${b.status}</td>
-    <td><button onclick='showInvoice("${b.name}","${b.room}","${b.bed}",${b.total},"${b.status}",${JSON.stringify(b.food)})'>View</button></td>
+    <td><button onclick='showInvoice(${JSON.stringify(b)})'>View</button></td>
     </tr>`;
   });
 }
