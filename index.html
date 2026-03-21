@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Aryan Dormitory Manager</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
+<style>
+body { font-family: Arial; padding:20px; }
+input, select { margin:5px; padding:5px; }
+table { width:100%; margin-top:20px; border-collapse: collapse; }
+th, td { border:1px solid #ccc; padding:8px; text-align:center; }
+button { padding:6px 10px; margin:2px; }
+</style>
+</head>
+
+<body>
+
+<h2>Aryan Dormitory Manager</h2>
+
+<button onclick="login()">Login with Google</button>
+<button onclick="logout()">Logout</button>
+
+<h3>Add Booking</h3>
+<input id="name" placeholder="Guest Name">
+<input id="phone" placeholder="Phone">
+<input id="bed" placeholder="Room1-Bed1">
+<input id="price" type="number" placeholder="Bed Price">
+<input id="days" type="number" placeholder="Days">
+<input id="food" type="number" placeholder="Food Bill">
+<input id="advance" type="number" placeholder="Advance">
+
+<select id="payment">
+<option>Cash</option>
+<option>UPI</option>
+</select>
+
+<button onclick="addBooking()">Add Booking</button>
+
+<h3>Dashboard</h3>
+<p>Total Revenue: ₹<span id="revenue">0</span></p>
+<p>Pending: ₹<span id="pending">0</span></p>
+
+<table>
+<thead>
+<tr>
+<th>Name</th><th>Bed</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
+  authDomain: "aryan-dormitory-manager.firebaseapp.com",
+  projectId: "aryan-dormitory-manager",
+  storageBucket: "aryan-dormitory-manager.appspot.com",
+  messagingSenderId: "875819401826",
+  appId: "1:875819401826:web:98cb2ccb87352831d4073b"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+
+window.login = async () => {
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+};
+
+window.logout = async () => {
+  await signOut(auth);
+};
+
+window.addBooking = async () => {
+  let name = document.getElementById('name').value;
+  let bed = document.getElementById('bed').value;
+  let price = Number(document.getElementById('price').value);
+  let days = Number(document.getElementById('days').value);
+  let food = Number(document.getElementById('food').value);
+  let advance = Number(document.getElementById('advance').value);
+
+  let total = (price * days) + food;
+  let balance = total - advance;
+
+  await addDoc(collection(db, "bookings"), {
+    name, bed, total, advance, balance
+  });
+
+  loadData();
+};
+
+async function loadData(){
+  const querySnapshot = await getDocs(collection(db, "bookings"));
+  let table = document.getElementById('table');
+  table.innerHTML = "";
+  let revenue = 0;
+  let pending = 0;
+
+  querySnapshot.forEach((doc) => {
+    let b = doc.data();
+    revenue += b.total;
+    pending += b.balance;
+
+    table.innerHTML += `
+    <tr>
+    <td>${b.name}</td>
+    <td>${b.bed}</td>
+    <td>${b.total}</td>
+    <td>${b.advance}</td>
+    <td>${b.balance}</td>
+    <td>Active</td>
+    </tr>`;
+  });
+
+  document.getElementById('revenue').innerText = revenue;
+  document.getElementById('pending').innerText = pending;
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>
