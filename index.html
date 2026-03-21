@@ -14,7 +14,6 @@ button { padding:6px 10px; margin:5px; }
 <body>
 
 <h2>🏨 Aryan Dormitory Manager</h2>
-<button onclick="login()">Login</button>
 
 <div class="card">
 <h3>Add / Edit Booking</h3>
@@ -26,16 +25,14 @@ button { padding:6px 10px; margin:5px; }
 <input id="days" type="number" placeholder="Days">
 <input id="price" type="number" placeholder="Bed Price">
 
-<input id="advance" type="number" placeholder="Advance">
+<button onclick="openFood()">🍽️ Add Food</button>
 
 <select id="payment">
 <option>Pending</option>
 <option>Paid</option>
 </select>
 
-<button onclick="openFood()">🍽️ Add Food</button>
 <button onclick="saveBooking()">Save Booking</button>
-
 </div>
 
 <div class="card">
@@ -52,7 +49,6 @@ button { padding:6px 10px; margin:5px; }
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -63,12 +59,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore();
-const auth = getAuth();
-
-window.login = async () => {
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
-};
 
 // ROOMS
 const rooms = {
@@ -92,39 +82,26 @@ async function loadBeds(){
   let bedSelect = document.getElementById("bed");
   bedSelect.innerHTML="";
 
-  let data = await getDocs(collection(db,"bookings"));
-  let booked=[];
-
-  data.forEach(d=>{
-    let b=d.data();
-    booked.push(b.room+"-"+b.bed);
-  });
-
   let count = rooms[roomSelect.value];
 
   for(let i=1;i<=count;i++){
-    let key = roomSelect.value+"-"+i;
-
-    if(!booked.includes(key)){
-      let opt = document.createElement("option");
-      opt.value = i;
-      opt.innerText = "Bed "+i;
-      bedSelect.appendChild(opt);
-    }
+    let opt = document.createElement("option");
+    opt.value = i;
+    opt.innerText = "Bed "+i;
+    bedSelect.appendChild(opt);
   }
 }
 loadBeds();
 
-// FOOD SYSTEM (SEPARATE)
+// FOOD
 let foodItems=[];
 
 window.openFood = () => {
-  let name = prompt("Food Item (Water/Thali etc)");
+  let name = prompt("Food Item");
   let price = Number(prompt("Price"));
 
   if(name && price){
     foodItems.push({name,price});
-    alert("Added: "+name+" ₹"+price);
   }
 };
 
@@ -132,94 +109,79 @@ window.openFood = () => {
 let editId=null;
 
 window.editBooking = async (id) => {
-  editId=id;
 
-  const docRef = doc(db,"bookings",id);
-  const docSnap = await getDoc(docRef);
+  editId = id;
+
+  const docSnap = await getDoc(doc(db,"bookings",id));
 
   if(docSnap.exists()){
-    let b=docSnap.data();
+    let b = docSnap.data();
 
-    name.value=b.name;
-    room.value=b.room;
-    payment.value=b.status;
+    document.getElementById("name").value = b.name;
+    document.getElementById("room").value = b.room;
 
-    foodItems=b.food||[];
+    await loadBeds(); // important
+
+    document.getElementById("bed").value = b.bed;
+    document.getElementById("payment").value = b.status;
+
+    foodItems = b.food || [];
   }
 };
 
 // SAVE
 window.saveBooking = async () => {
 
-  let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
-  let total=(Number(days.value)*Number(price.value))+foodTotal;
+  let total = 100; // simple test value
 
   if(editId){
 
     await updateDoc(doc(db,"bookings",editId),{
-      name:name.value,
-      room:room.value,
-      bed:bed.value,
+      name: document.getElementById("name").value,
+      room: document.getElementById("room").value,
+      bed: document.getElementById("bed").value,
       total,
-      status:payment.value,
-      food:foodItems
+      status: document.getElementById("payment").value,
+      food: foodItems
     });
 
-    editId=null;
+    alert("Updated successfully");
+
+    editId = null;
 
   }else{
 
     await addDoc(collection(db,"bookings"),{
-      name:name.value,
-      room:room.value,
-      bed:bed.value,
+      name: document.getElementById("name").value,
+      room: document.getElementById("room").value,
+      bed: document.getElementById("bed").value,
       total,
-      status:payment.value,
-      food:foodItems
+      status: document.getElementById("payment").value,
+      food: foodItems
     });
 
+    alert("Saved successfully");
   }
 
-  foodItems=[];
   loadData();
-  loadBeds();
-};
-
-// INVOICE
-window.showInvoice = (b) => {
-  let food=(b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
-
-  alert(`Invoice
-
-${b.name}
-${b.room} Bed ${b.bed}
-
-Food:
-${food}
-
-Total: ₹${b.total}
-Status: ${b.status}`);
 };
 
 // LOAD
 async function loadData(){
-  let data=await getDocs(collection(db,"bookings"));
+  let data = await getDocs(collection(db,"bookings"));
   table.innerHTML="";
 
   data.forEach(d=>{
-    let b=d.data();
+    let b = d.data();
 
     table.innerHTML+=`
 <tr>
 <td>${b.name}</td>
 <td>${b.room}</td>
 <td>${b.bed}</td>
-<td>₹${b.total}</td>
+<td>${b.total}</td>
 <td>${b.status}</td>
-<td>
-<button onclick='showInvoice(${JSON.stringify(b)})'>View</button>
-<button onclick='editBooking("${d.id}")'>Edit</button>
-</td>
+<td><button onclick='editBooking("${d.id}")'>Edit</button></td>
 </tr>`;
   });
 }
