@@ -9,13 +9,11 @@ body { font-family: Arial; background:#f5f7fa; padding:20px; }
 input, select { margin:5px; padding:6px; }
 button { padding:6px 10px; margin:5px; }
 </style>
-
 </head>
 
 <body>
 
 <h2>🏨 Aryan Dormitory Manager</h2>
-<p id="userInfo"></p>
 <button onclick="login()">Login</button>
 
 <div class="card">
@@ -28,13 +26,6 @@ button { padding:6px 10px; margin:5px; }
 <input id="days" type="number" placeholder="Days">
 <input id="price" type="number" placeholder="Bed Price">
 
-<h4>Food Items</h4>
-<input id="foodName" placeholder="Item">
-<input id="foodPrice" type="number" placeholder="Price">
-<button onclick="addFood()">Add Food</button>
-
-<ul id="foodList"></ul>
-
 <input id="advance" type="number" placeholder="Advance">
 
 <select id="payment">
@@ -42,7 +33,9 @@ button { padding:6px 10px; margin:5px; }
 <option>Paid</option>
 </select>
 
+<button onclick="openFood()">🍽️ Add Food</button>
 <button onclick="saveBooking()">Save Booking</button>
+
 </div>
 
 <div class="card">
@@ -60,7 +53,7 @@ button { padding:6px 10px; margin:5px; }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
@@ -69,8 +62,8 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth();
 const db = getFirestore();
+const auth = getAuth();
 
 window.login = async () => {
   const provider = new GoogleAuthProvider();
@@ -79,15 +72,9 @@ window.login = async () => {
 
 // ROOMS
 const rooms = {
-  "अभिज्ञान‍ः":4,
-  "व्यासः":4,
-  "अत्रिः":4,
-  "भृगुः":4,
-  "वसिष्ठंः":12,
-  "विश्वामित्रः":12,
-  "भारद्वाजः":12,
-  "भार्गवः":12,
-  "आगतस्यः":12
+  "अभिज्ञान‍ः":4,"व्यासः":4,"अत्रिः":4,"भृगुः":4,
+  "वसिष्ठंः":12,"विश्वामित्रः":12,
+  "भारद्वाजः":12,"भार्गवः":12,"आगतस्यः":12
 };
 
 const roomSelect = document.getElementById("room");
@@ -121,55 +108,47 @@ async function loadBeds(){
     if(!booked.includes(key)){
       let opt = document.createElement("option");
       opt.value = i;
-      opt.innerText = "Bed "+i+" 🟢";
+      opt.innerText = "Bed "+i;
       bedSelect.appendChild(opt);
     }
   }
 }
 loadBeds();
 
-// FOOD
+// FOOD SYSTEM (SEPARATE)
 let foodItems=[];
-window.addFood = () => {
-  let name = foodName.value;
-  let price = Number(foodPrice.value);
 
-  foodItems.push({name,price});
+window.openFood = () => {
+  let name = prompt("Food Item (Water/Thali etc)");
+  let price = Number(prompt("Price"));
 
-  let li=document.createElement("li");
-  li.innerText=name+" ₹"+price;
-  foodList.appendChild(li);
+  if(name && price){
+    foodItems.push({name,price});
+    alert("Added: "+name+" ₹"+price);
+  }
 };
 
-// EDIT SYSTEM
+// EDIT
 let editId=null;
 
 window.editBooking = async (id) => {
-
   editId=id;
 
-  let data=await getDocs(collection(db,"bookings"));
+  const docRef = doc(db,"bookings",id);
+  const docSnap = await getDoc(docRef);
 
-  data.forEach(d=>{
-    if(d.id===id){
-      let b=d.data();
+  if(docSnap.exists()){
+    let b=docSnap.data();
 
-      name.value=b.name;
-      room.value=b.room;
-      payment.value=b.status;
+    name.value=b.name;
+    room.value=b.room;
+    payment.value=b.status;
 
-      foodItems=b.food||[];
-      foodList.innerHTML="";
-      foodItems.forEach(f=>{
-        let li=document.createElement("li");
-        li.innerText=f.name+" ₹"+f.price;
-        foodList.appendChild(li);
-      });
-    }
-  });
+    foodItems=b.food||[];
+  }
 };
 
-// SAVE / UPDATE
+// SAVE
 window.saveBooking = async () => {
 
   let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
@@ -202,31 +181,27 @@ window.saveBooking = async () => {
   }
 
   foodItems=[];
-  foodList.innerHTML="";
-
   loadData();
   loadBeds();
 };
 
 // INVOICE
 window.showInvoice = (b) => {
+  let food=(b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
 
-  let foodList = (b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
+  alert(`Invoice
 
-  alert(`INVOICE
-
-Name: ${b.name}
-Room: ${b.room}
-Bed: ${b.bed}
+${b.name}
+${b.room} Bed ${b.bed}
 
 Food:
-${foodList}
+${food}
 
 Total: ₹${b.total}
 Status: ${b.status}`);
 };
 
-// LOAD DATA
+// LOAD
 async function loadData(){
   let data=await getDocs(collection(db,"bookings"));
   table.innerHTML="";
