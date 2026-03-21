@@ -11,17 +11,28 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 .dashboard { display:flex; gap:20px; margin-bottom:20px; }
 .box { padding:10px; background:#fff; border-radius:10px; }
 </style>
+
+<!-- Chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 </head>
 
 <body>
 
 <h2>🏨 Aryan Dormitory Manager</h2>
 
+<button onclick="login()">Login</button>
+
 <div class="dashboard">
 <div class="box">Revenue: ₹<span id="rev">0</span></div>
 <div class="box">Pending: ₹<span id="pend">0</span></div>
 <div class="box">Guests: <span id="count">0</span></div>
 </div>
+
+<canvas id="chart" height="100"></canvas>
 
 <div class="card">
 
@@ -58,6 +69,7 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
@@ -70,6 +82,25 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore();
+const auth = getAuth();
+
+// LOGIN
+const ADMIN_EMAIL = "aryanhotel017@gmail.com";
+
+window.login = async ()=>{
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+};
+
+onAuthStateChanged(auth,(user)=>{
+  if(user){
+    if(user.email !== ADMIN_EMAIL){
+      alert("Staff login");
+    }else{
+      alert("Admin login");
+    }
+  }
+});
 
 // ROOMS
 const rooms={
@@ -78,33 +109,29 @@ const rooms={
   "भारद्वाजः":12,"भार्गवः":12,"आगतस्यः":12
 };
 
-// LOAD ROOMS
-const roomSelect=document.getElementById("room");
-const bedSelect=document.getElementById("bed");
+const room=document.getElementById("room");
+const bed=document.getElementById("bed");
 
 for(let r in rooms){
   let o=document.createElement("option");
   o.value=r;o.innerText=r;
-  roomSelect.appendChild(o);
+  room.appendChild(o);
 }
 
-roomSelect.onchange=loadBeds;
+room.onchange=loadBeds;
 
 async function loadBeds(){
-  bedSelect.innerHTML="";
-
+  bed.innerHTML="";
   let data=await getDocs(collection(db,"bookings"));
   let booked=[];
   data.forEach(d=>booked.push(d.data().room+"-"+d.data().bed));
 
-  for(let i=1;i<=rooms[roomSelect.value];i++){
-    let key=roomSelect.value+"-"+i;
-
+  for(let i=1;i<=rooms[room.value];i++){
+    let key=room.value+"-"+i;
     if(!booked.includes(key)){
       let o=document.createElement("option");
-      o.value=i;
-      o.innerText="Bed "+i+" 🟢";
-      bedSelect.appendChild(o);
+      o.value=i;o.innerText="Bed "+i+" 🟢";
+      bed.appendChild(o);
     }
   }
 }
@@ -112,13 +139,10 @@ loadBeds();
 
 // FOOD
 let foodItems=[];
-
 window.openFood=()=>{
-  let name=prompt("Food item");
-  let price=Number(prompt("Price"));
-  if(name && price){
-    foodItems.push({name,price});
-  }
+  let n=prompt("Food item");
+  let p=Number(prompt("Price"));
+  if(n&&p)foodItems.push({name:n,price:p});
 };
 
 // EDIT
@@ -126,103 +150,101 @@ let editId=null;
 
 window.editBooking=async(id)=>{
   editId=id;
-
   const snap=await getDoc(doc(db,"bookings",id));
   let b=snap.data();
 
-  document.getElementById("name").value=b.name;
-  roomSelect.value=b.room;
-
+  name.value=b.name;
+  room.value=b.room;
   await loadBeds();
-  bedSelect.value=b.bed;
-
-  document.getElementById("payment").value=b.status;
+  bed.value=b.bed;
+  payment.value=b.status;
   foodItems=b.food||[];
 };
 
 // SAVE
 window.saveBooking=async()=>{
 
-  let daysVal=Number(document.getElementById("days").value);
-  let priceVal=Number(document.getElementById("price").value);
+let daysVal=Number(days.value);
+let priceVal=Number(price.value);
+let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
+let total=(daysVal*priceVal)+foodTotal;
 
-  let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
-  let total=(daysVal*priceVal)+foodTotal;
+if(editId){
+await updateDoc(doc(db,"bookings",editId),{
+name:name.value,room:room.value,bed:bed.value,
+total,status:payment.value,food:foodItems
+});
+editId=null;
+}else{
+await addDoc(collection(db,"bookings"),{
+name:name.value,room:room.value,bed:bed.value,
+total,status:payment.value,food:foodItems
+});
+}
 
-  if(editId){
-
-    await updateDoc(doc(db,"bookings",editId),{
-      name:document.getElementById("name").value,
-      room:roomSelect.value,
-      bed:bedSelect.value,
-      total,
-      status:document.getElementById("payment").value,
-      food:foodItems
-    });
-
-    editId=null;
-
-  }else{
-
-    await addDoc(collection(db,"bookings"),{
-      name:document.getElementById("name").value,
-      room:roomSelect.value,
-      bed:bedSelect.value,
-      total,
-      status:document.getElementById("payment").value,
-      food:foodItems
-    });
-
-  }
-
-  foodItems=[];
-  loadData();
-  loadBeds();
+foodItems=[];
+loadData(); loadBeds();
 };
 
 // DELETE
 window.deleteBooking=async(id)=>{
-  await deleteDoc(doc(db,"bookings",id));
-  loadData(); loadBeds();
+await deleteDoc(doc(db,"bookings",id));
+loadData(); loadBeds();
 };
 
 // CHECKOUT
 window.checkout=async(id)=>{
-  await updateDoc(doc(db,"bookings",id),{status:"CheckedOut"});
-  loadData(); loadBeds();
+await updateDoc(doc(db,"bookings",id),{status:"CheckedOut"});
+loadData(); loadBeds();
 };
 
-// INVOICE
+// PDF INVOICE
 window.invoice=(b)=>{
-  let food=(b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF();
 
-  alert(`🧾 Invoice
+let food=(b.food||[]).map(f=>f.name+" ₹"+f.price).join("\n");
 
-${b.name}
-${b.room} Bed ${b.bed}
+doc.text("Aryan Dormitory Invoice",10,10);
+doc.text(`Name: ${b.name}`,10,20);
+doc.text(`Room: ${b.room}`,10,30);
+doc.text(`Bed: ${b.bed}`,10,40);
+doc.text(`Food:\n${food}`,10,50);
+doc.text(`Total: ₹${b.total}`,10,80);
+doc.text(`Status: ${b.status}`,10,90);
 
-Food:
-${food || "None"}
-
-Total: ₹${b.total}
-Status: ${b.status}`);
+doc.save("invoice.pdf");
 };
 
-// LOAD TABLE
+// CHART
+let chart;
+
+function drawChart(rev,pend){
+const ctx=document.getElementById("chart");
+if(chart) chart.destroy();
+
+chart=new Chart(ctx,{
+type:'bar',
+data:{
+labels:['Revenue','Pending'],
+datasets:[{label:'₹',data:[rev,pend]}]
+}
+});
+}
+
+// LOAD
 async function loadData(){
-  let data=await getDocs(collection(db,"bookings"));
-  table.innerHTML="";
+let data=await getDocs(collection(db,"bookings"));
+table.innerHTML="";
+let rev=0,pend=0,count=0;
 
-  let rev=0,pend=0,count=0;
+data.forEach(d=>{
+let b=d.data();
+rev+=b.total;
+if(b.status!="Paid") pend+=b.total;
+count++;
 
-  data.forEach(d=>{
-    let b=d.data();
-
-    rev+=b.total;
-    if(b.status!="Paid") pend+=b.total;
-    count++;
-
-    table.innerHTML+=`
+table.innerHTML+=`
 <tr>
 <td>${b.name}</td>
 <td>${b.room}</td>
@@ -233,15 +255,21 @@ async function loadData(){
 <button onclick='editBooking("${d.id}")'>Edit</button>
 <button onclick='deleteBooking("${d.id}")'>Delete</button>
 <button onclick='checkout("${d.id}")'>Checkout</button>
-<button onclick='invoice(${JSON.stringify(b)})'>Invoice</button>
+<button onclick='invoice(${JSON.stringify(b)})'>PDF</button>
 </td>
 </tr>`;
-  });
+});
 
-  document.getElementById("rev").innerText=rev;
-  document.getElementById("pend").innerText=pend;
-  document.getElementById("count").innerText=count;
+revEl.innerText=rev;
+pendEl.innerText=pend;
+countEl.innerText=count;
+
+drawChart(rev,pend);
 }
+
+const revEl=document.getElementById("rev");
+const pendEl=document.getElementById("pend");
+const countEl=document.getElementById("count");
 
 loadData();
 
