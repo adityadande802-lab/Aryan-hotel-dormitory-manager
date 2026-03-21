@@ -2,8 +2,7 @@
 <html>
 <head>
 <title>Aryan Dormitory Manager</title>
-
-<style>
+  
 body { font-family: Arial; padding:20px; }
 input, select { margin:5px; padding:5px; }
 table { width:100%; margin-top:20px; border-collapse: collapse; }
@@ -16,7 +15,8 @@ button { padding:6px 10px; margin:2px; }
 <body>
 
 <h2>Aryan Dormitory Manager</h2>
-
+<p id="userInfo" style="color: green; font-weight: bold;"></p>
+<style>
 <button onclick="login()">Login with Google</button>
 
 <h3>Add Booking</h3>
@@ -65,7 +65,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("userInfo").innerText =
+      "Logged in as: " + user.email;
+  } else {
+    document.getElementById("userInfo").innerText = "Not logged in";
+  }
+});
 window.login = async () => {
   const provider = new GoogleAuthProvider();
   await signInWithPopup(auth, provider);
