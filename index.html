@@ -1,3 +1,4 @@
+<!-- FULL SYSTEM WITH AVAILABILITY + INVOICE -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -8,6 +9,8 @@ body { font-family: Arial; background:#f5f7fa; padding:20px; }
 .card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
 input, select { margin:5px; padding:6px; }
 button { padding:6px 10px; margin:5px; }
+.available { color:green; }
+.booked { color:red; }
 </style>
 
 </head>
@@ -48,7 +51,7 @@ button { padding:6px 10px; margin:5px; }
 <div class="card">
 <h3>Bookings</h3>
 <table border="1" width="100%">
-<tr><th>Name</th><th>Room</th><th>Bed</th><th>Total</th><th>Status</th></tr>
+<tr><th>Name</th><th>Room</th><th>Bed</th><th>Total</th><th>Status</th><th>Invoice</th></tr>
 <tbody id="table"></tbody>
 </table>
 </div>
@@ -62,7 +65,7 @@ import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.c
 const firebaseConfig = {
   apiKey: "AIzaSyCpJ5HP-qFwibkXs6vk-B7ewTesh8KTjCE",
   authDomain: "aryan-dormitory-manager.firebaseapp.com",
-  projectId: "aryan-dormitory-manager",
+  projectId: "aryan-dormitory-manager"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -74,7 +77,7 @@ window.login = async () => {
   await signInWithPopup(auth, provider);
 };
 
-// ROOMS CONFIG
+// ROOM CONFIG
 const rooms = {
   "अभिज्ञान‍ः":4,
   "व्यासः":4,
@@ -87,8 +90,11 @@ const rooms = {
   "आगतस्यः":12
 };
 
-// LOAD ROOMS
+// TRACK BOOKED BEDS
+let bookedBeds = [];
+
 const roomSelect = document.getElementById("room");
+
 for (let r in rooms){
   let opt = document.createElement("option");
   opt.value = r;
@@ -98,20 +104,34 @@ for (let r in rooms){
 
 roomSelect.onchange = loadBeds;
 
-function loadBeds(){
+async function loadBeds(){
   let bedSelect = document.getElementById("bed");
   bedSelect.innerHTML="";
+
+  let data = await getDocs(collection(db,"bookings"));
+  bookedBeds = [];
+
+  data.forEach(d=>{
+    let b = d.data();
+    bookedBeds.push(b.room+"-"+b.bed);
+  });
+
   let count = rooms[roomSelect.value];
+
   for(let i=1;i<=count;i++){
-    let opt = document.createElement("option");
-    opt.value = i;
-    opt.innerText = "Bed "+i;
-    bedSelect.appendChild(opt);
+    let key = roomSelect.value+"-"+i;
+
+    if(!bookedBeds.includes(key)){
+      let opt = document.createElement("option");
+      opt.value = i;
+      opt.innerText = "Bed "+i+" 🟢";
+      bedSelect.appendChild(opt);
+    }
   }
 }
 loadBeds();
 
-// FOOD SYSTEM
+// FOOD
 let foodItems=[];
 
 window.addFood = () => {
@@ -128,7 +148,6 @@ window.addFood = () => {
 window.addBooking = async () => {
 
   let foodTotal = foodItems.reduce((sum,f)=>sum+f.price,0);
-
   let total = (Number(days.value)*Number(price.value)) + foodTotal;
 
   await addDoc(collection(db,"bookings"),{
@@ -144,6 +163,24 @@ window.addBooking = async () => {
   foodList.innerHTML="";
 
   loadData();
+  loadBeds();
+};
+
+// INVOICE
+window.showInvoice = (name,room,bed,total,status,food) => {
+  let items = food.map(f=>f.name+" ₹"+f.price).join("<br>");
+
+  alert(`
+Invoice
+Name: ${name}
+Room: ${room}
+Bed: ${bed}
+Food:
+${items}
+
+Total: ₹${total}
+Status: ${status}
+`);
 };
 
 async function loadData(){
@@ -160,6 +197,7 @@ async function loadData(){
     <td>${b.bed}</td>
     <td>₹${b.total}</td>
     <td>${b.status}</td>
+    <td><button onclick='showInvoice("${b.name}","${b.room}","${b.bed}",${b.total},"${b.status}",${JSON.stringify(b.food)})'>View</button></td>
     </tr>`;
   });
 }
