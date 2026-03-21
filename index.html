@@ -181,7 +181,10 @@ async function loadData(){
 <td>${b.bed}</td>
 <td>${b.total}</td>
 <td>${b.status}</td>
-<td><button onclick='editBooking("${d.id}")'>Edit</button></td>
+<td>
+<button onclick='editBooking("${d.id}")'>Edit</button>
+<button onclick='showInvoice(${JSON.stringify(b)})'>Invoice</button>
+</td>
 </tr>`;
   });
 }
@@ -189,6 +192,22 @@ async function loadData(){
 loadData();
 
 </script>
+window.showInvoice = (b) => {
 
+  let foodList = (b.food || []).map(f => f.name + " ₹" + f.price).join("\n");
+
+  alert(`🧾 INVOICE
+
+Guest: ${b.name}
+Room: ${b.room}
+Bed: ${b.bed}
+
+Food:
+${foodList || "No food"}
+
+Total: ₹${b.total}
+Status: ${b.status}
+`);
+};
 </body>
 </html>
