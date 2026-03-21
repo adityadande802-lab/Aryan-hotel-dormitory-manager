@@ -132,7 +132,12 @@ window.editBooking = async (id) => {
 // SAVE
 window.saveBooking = async () => {
 
-  let total = 100; // simple test value
+  let daysVal = Number(document.getElementById("days").value);
+let priceVal = Number(document.getElementById("price").value);
+
+let foodTotal = foodItems.reduce((sum, f) => sum + f.price, 0);
+
+let total = (daysVal * priceVal) + foodTotal;
 
   if(editId){
 
