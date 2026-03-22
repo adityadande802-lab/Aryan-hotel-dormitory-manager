@@ -3,8 +3,16 @@
 <head>
 <title>Aryan Dormitory Manager</title>
 
-<style
- .bed {
+<style>
+body { font-family: Arial; background:#f5f7fa; padding:20px; }
+.card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
+input, select { margin:5px; padding:6px; }
+button { padding:6px 10px; margin:5px; cursor:pointer; }
+
+.dashboard { display:flex; gap:20px; margin-bottom:20px; }
+.box { padding:10px; background:#fff; border-radius:10px; }
+
+.bed {
   display:inline-block;
   padding:8px 12px;
   margin:5px;
@@ -15,13 +23,6 @@
 .available { background:#28a745; color:white; }
 .booked { background:#dc3545; color:white; }
 .selected { background:#007bff; color:white; }
-  
-body { font-family: Arial; background:#f5f7fa; padding:20px; }
-.card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
-input, select { margin:5px; padding:6px; }
-button { padding:6px 10px; margin:5px; cursor:pointer; }
-.dashboard { display:flex; gap:20px; margin-bottom:20px; }
-.box { padding:10px; background:#fff; border-radius:10px; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -63,11 +64,12 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 <button onclick="saveBooking()">Save</button>
 
 </div>
+
 <div class="card">
 <h3>Bed Layout</h3>
 <div id="bedLayout"></div>
 </div>
-  
+
 <div class="card">
 <table border="1" width="100%">
 <tr>
@@ -105,7 +107,6 @@ window.login = async ()=>{
   await signInWithPopup(auth, provider);
 };
 
-// AUTH STATE
 onAuthStateChanged(auth,(user)=>{
   if(user){
     currentUser = user;
@@ -218,18 +219,19 @@ window.saveBooking = async () => {
   foodItems = [];
   loadData();
   loadBeds();
+  renderBeds();
 };
 
 // DELETE
 window.deleteBooking=async(id)=>{
   await deleteDoc(doc(db,"bookings",id));
-  loadData(); loadBeds();
+  loadData(); loadBeds(); renderBeds();
 };
 
 // CHECKOUT
 window.checkout=async(id)=>{
   await updateDoc(doc(db,"bookings",id),{status:"CheckedOut"});
-  loadData(); loadBeds();
+  loadData(); loadBeds(); renderBeds();
 };
 
 // PDF
@@ -244,7 +246,8 @@ doc.save("invoice.pdf");
 let chart;
 function drawChart(rev,pend){
 if(chart) chart.destroy();
-chart=new Chart(chartCanvas,{
+
+chart=new Chart(document.getElementById("chart"),{
 type:'bar',
 data:{labels:['Revenue','Pending'],datasets:[{data:[rev,pend]}]}
 });
@@ -278,71 +281,74 @@ table.innerHTML+=`
 </tr>`;
 });
 
-rev.innerText=rev;
-pend.innerText=pend;
-count.innerText=count;
+document.getElementById("rev").innerText = rev;
+document.getElementById("pend").innerText = pend;
+document.getElementById("count").innerText = count;
 
 drawChart(rev,pend);
 }
 
-let selectedRoom = null;
-let selectedBed = null;
+// BED UI
+let selectedRoom=null;
+let selectedBed=null;
 
 async function renderBeds(){
 
-  let container = document.getElementById("bedLayout");
-  container.innerHTML = "";
+let container=document.getElementById("bedLayout");
+container.innerHTML="";
 
-  let data = await getDocs(collection(db,"bookings"));
-  let booked = [];
+let data=await getDocs(collection(db,"bookings"));
+let booked=[];
+data.forEach(d=>{
+let b=d.data();
+booked.push(b.room+"-"+b.bed);
+});
 
-  data.forEach(d=>{
-    let b = d.data();
-    booked.push(b.room + "-" + b.bed);
-  });
+for(let roomName in rooms){
 
-  for(let roomName in rooms){
+let roomDiv=document.createElement("div");
+roomDiv.innerHTML=`<h4>${roomName}</h4>`;
 
-    let roomDiv = document.createElement("div");
-    roomDiv.innerHTML = `<h4>${roomName}</h4>`;
+for(let i=1;i<=rooms[roomName];i++){
 
-    for(let i=1;i<=rooms[roomName];i++){
+let key=roomName+"-"+i;
+let div=document.createElement("span");
+div.classList.add("bed");
 
-      let key = roomName+"-"+i;
-      let div = document.createElement("span");
+if(booked.includes(key)){
+div.classList.add("booked");
+div.innerText="Bed "+i;
+}else{
+div.classList.add("available");
+div.innerText="Bed "+i;
 
-      div.classList.add("bed");
+div.onclick=()=>{
+selectedRoom=roomName;
+selectedBed=i;
 
-      if(booked.includes(key)){
-        div.classList.add("booked");
-        div.innerText = "Bed " + i;
-      }else{
-        div.classList.add("available");
-        div.innerText = "Bed " + i;
+room.value=roomName;
+bed.value=i;
 
-        div.onclick = ()=>{
-          selectedRoom = roomName;
-          selectedBed = i;
-
-          document.getElementById("room").value = roomName;
-          document.getElementById("bed").value = i;
-
-          renderBeds();
-        };
-      }
-
-      if(selectedRoom===roomName && selectedBed==i){
-        div.classList.remove("available");
-        div.classList.add("selected");
-      }
-
-      roomDiv.appendChild(div);
-    }
-
-    container.appendChild(roomDiv);
-  }
+renderBeds();
+};
 }
+
+if(selectedRoom===roomName && selectedBed==i){
+div.classList.remove("available");
+div.classList.add("selected");
+}
+
+roomDiv.appendChild(div);
+}
+
+container.appendChild(roomDiv);
+}
+}
+
+// INIT
 loadData();
+renderBeds();
+
 </script>
 
 </body>
