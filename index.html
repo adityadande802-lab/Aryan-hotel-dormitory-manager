@@ -51,9 +51,10 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 <select id="bed"></select>
 
 <input id="name" placeholder="Guest Name">
-<input id="days" type="number" placeholder="Days">
+<input type="date" id="checkin">
+<input type="date" id="checkout">
 <input id="price" type="number" placeholder="Bed Price">
-
+<p id="daysDisplay"></p>
 <button onclick="openFood()">🍽️ Food</button>
 
 <select id="payment">
@@ -74,6 +75,7 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 <table border="1" width="100%">
 <tr>
 <th>Name</th><th>Room</th><th>Bed</th>
+<th>Check-in</th><th>Check-out</th>
 <th>Total</th><th>Status</th><th>Actions</th>
 </tr>
 <tbody id="table"></tbody>
@@ -100,6 +102,30 @@ const db = getFirestore();
 const auth = getAuth();
 
 let currentUser = null;
+  
+function calculateDays(){
+
+  let inDate = new Date(document.getElementById("checkin").value);
+  let outDate = new Date(document.getElementById("checkout").value);
+
+  if(inDate && outDate && outDate > inDate){
+
+    let diff = (outDate - inDate) / (1000 * 60 * 60 * 24);
+
+    document.getElementById("daysDisplay").innerText =
+      "Days: " + diff;
+
+    return diff;
+
+  }else{
+    document.getElementById("daysDisplay").innerText = "";
+    return 0;
+  }
+}
+
+// trigger when date changes
+checkin.onchange = calculateDays;
+checkout.onchange = calculateDays;
 
 // LOGIN
 window.login = async ()=>{
@@ -185,7 +211,7 @@ window.saveBooking = async () => {
   let roomVal = room.value || "";
   let bedVal = bed.value || "";
 
-  let daysVal = Number(days.value) || 0;
+  let daysVal = calculateDays();
   let priceVal = Number(price.value) || 0;
 
   let foodTotal = foodItems.reduce((s,f)=>s+f.price,0);
@@ -205,6 +231,8 @@ window.saveBooking = async () => {
     editId = null;
   }else{
     await addDoc(collection(db,"bookings"),{
+      checkin: document.getElementById("checkin").value,
+checkout: document.getElementById("checkout").value,
       name: guestName,
       room: roomVal,
       bed: bedVal,
@@ -272,6 +300,8 @@ table.innerHTML+=`
 <td>${b.bed}</td>
 <td>₹${b.total}</td>
 <td>${b.status}</td>
+<td>${b.checkin || ""}</td>
+<td>${b.checkout || ""}</td>
 <td>
 <button onclick='editBooking("${d.id}")'>Edit</button>
 <button onclick='deleteBooking("${d.id}")'>Delete</button>
