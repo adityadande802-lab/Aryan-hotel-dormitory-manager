@@ -3,7 +3,19 @@
 <head>
 <title>Aryan Dormitory Manager</title>
 
-<style>
+<style
+ .bed {
+  display:inline-block;
+  padding:8px 12px;
+  margin:5px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.available { background:#28a745; color:white; }
+.booked { background:#dc3545; color:white; }
+.selected { background:#007bff; color:white; }
+  
 body { font-family: Arial; background:#f5f7fa; padding:20px; }
 .card { background:white; padding:15px; border-radius:10px; margin-bottom:20px; }
 input, select { margin:5px; padding:6px; }
@@ -51,7 +63,11 @@ button { padding:6px 10px; margin:5px; cursor:pointer; }
 <button onclick="saveBooking()">Save</button>
 
 </div>
-
+<div class="card">
+<h3>Bed Layout</h3>
+<div id="bedLayout"></div>
+</div>
+  
 <div class="card">
 <table border="1" width="100%">
 <tr>
@@ -269,8 +285,64 @@ count.innerText=count;
 drawChart(rev,pend);
 }
 
-loadData();
+let selectedRoom = null;
+let selectedBed = null;
 
+async function renderBeds(){
+
+  let container = document.getElementById("bedLayout");
+  container.innerHTML = "";
+
+  let data = await getDocs(collection(db,"bookings"));
+  let booked = [];
+
+  data.forEach(d=>{
+    let b = d.data();
+    booked.push(b.room + "-" + b.bed);
+  });
+
+  for(let roomName in rooms){
+
+    let roomDiv = document.createElement("div");
+    roomDiv.innerHTML = `<h4>${roomName}</h4>`;
+
+    for(let i=1;i<=rooms[roomName];i++){
+
+      let key = roomName+"-"+i;
+      let div = document.createElement("span");
+
+      div.classList.add("bed");
+
+      if(booked.includes(key)){
+        div.classList.add("booked");
+        div.innerText = "Bed " + i;
+      }else{
+        div.classList.add("available");
+        div.innerText = "Bed " + i;
+
+        div.onclick = ()=>{
+          selectedRoom = roomName;
+          selectedBed = i;
+
+          document.getElementById("room").value = roomName;
+          document.getElementById("bed").value = i;
+
+          renderBeds();
+        };
+      }
+
+      if(selectedRoom===roomName && selectedBed==i){
+        div.classList.remove("available");
+        div.classList.add("selected");
+      }
+
+      roomDiv.appendChild(div);
+    }
+
+    container.appendChild(roomDiv);
+  }
+}
+loadData();
 </script>
 
 </body>
