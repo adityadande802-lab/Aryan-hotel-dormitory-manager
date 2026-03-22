@@ -157,33 +157,51 @@ window.editBooking=async(id)=>{
 };
 
 // SAVE
-window.saveBooking=async()=>{
+window.saveBooking = async () => {
 
   if(!currentUser){
     alert("Login first ❗");
     return;
   }
 
-  let daysVal=Number(days.value);
-  let priceVal=Number(price.value);
-  let foodTotal=foodItems.reduce((s,f)=>s+f.price,0);
-  let total=(daysVal*priceVal)+foodTotal;
+  let guestName = document.getElementById("name").value || "No Name";
+  let roomVal = room.value || "";
+  let bedVal = bed.value || "";
+
+  let daysVal = Number(days.value) || 0;
+  let priceVal = Number(price.value) || 0;
+
+  let foodTotal = foodItems.reduce((s,f)=>s+f.price,0);
+  let total = (daysVal * priceVal) + foodTotal;
+
+  let statusVal = payment.value || "Pending";
 
   if(editId){
     await updateDoc(doc(db,"bookings",editId),{
-      name:name.value,room:room.value,bed:bed.value,
-      total,status:payment.value,food:foodItems
+      name: guestName,
+      room: roomVal,
+      bed: bedVal,
+      total,
+      status: statusVal,
+      food: foodItems || []
     });
-    editId=null;
+    editId = null;
   }else{
     await addDoc(collection(db,"bookings"),{
-      name:name.value,room:room.value,bed:bed.value,
-      total,status:payment.value,food:foodItems
+      name: guestName,
+      room: roomVal,
+      bed: bedVal,
+      total,
+      status: statusVal,
+      food: foodItems || []
     });
   }
 
-  foodItems=[];
-  loadData(); loadBeds();
+  alert("Saved successfully ✅");
+
+  foodItems = [];
+  loadData();
+  loadBeds();
 };
 
 // DELETE
